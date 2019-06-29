@@ -7,10 +7,35 @@
 char *msh_read_line()
 {
     int bufsize = BUFSIZE;
+    int position = 0;
+    int c;
     char *buffer = malloc(sizeof(char) * bufsize);
     if (!buffer) {
         fprintf(stderr, "msh:alloction error\n");
         exit(EXIT_FAILURE);
+    }
+
+    while (1) {
+        c = getchar();
+        //如果读到 EOF,就把 buffer 填为 null 值并返回
+        if (c == EOF || c == '\n') {
+            buffer[position] = 0;
+            return buffer;
+        }
+        else {
+            buffer[position] = c;
+        }
+        ++position;
+
+        // 如果输入长度大于缓冲区,需要重新分配
+        if (position >= bufsize) {
+            buffer = realloc(buffer, bufsize);
+            if (!buffer) {
+                fprintf(stderr, "msh: allocation error.\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+
     }
 
 }

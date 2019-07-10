@@ -11,14 +11,15 @@
 #include <stdint.h>
 #include <limits.h>
 #include <elf.h>
+#include <string.h>
 
-
+// elf 文件格式图示: https://en.wikipedia.org/wiki/File:Elf-layout--en.svg
 int main(int argc, char *args[])
 {
-//    if (argc != 2)
-//        printf("usage: %s <elf-file>", args[0]);
-//
-    args[1] = "/tmp/tmp.xKOC5ILnZK/cmake-build-debug-r/elfparser/elfparser";
+    if (argc != 2)
+        printf("usage: %s <elf-file>", args[0]);
+
+    //args[1] = "/bin/ls";
     int fd = open(args[1], O_RDONLY);
     if (fd < 0) {
         perror("open");
@@ -73,7 +74,12 @@ int main(int argc, char *args[])
 
     // printf("mem[0]0x%x\n",mem[0]);  should be 0x7f
 
-        Elf64_Ehdr *ehdr = (Elf64_Ehdr *) mem;                  // elf header
+    if (mem[0] != 0x7f) {
+        printf("not a valid elf file.");
+        exit(1);
+    }
+
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *) mem;                  // elf header
     Elf64_Phdr *phdr = (Elf64_Phdr *) &mem[ehdr->e_phoff];  // program header
     Elf64_Shdr *shdr = (Elf64_Shdr *) &mem[ehdr->e_shoff];  // section header
 
@@ -111,20 +117,48 @@ int main(int argc, char *args[])
      * #define ET_LOPROC	0xff00		// Processor-specific range start
      * #define ET_HIPROC	0xffff		// Processor-specific range end
     */
+
+
+    /**
+     * 注意,一般来说,静态链接得到可执行文件,动态链接得到共吸纳过文件
+     */
     if (ehdr->e_type != ET_EXEC) {
-        fprintf(stderr, "%s is not executable.", args[1]);
-        exit(-1);
+        fprintf(stderr, "warn: %s is not executable type.\n", args[1]);
     }
 
     printf("program entry point:0x%lx\n", ehdr->e_entry);
 
-    // e_shstrndx: /* Section header string table index */
+    //e_shstrndx: /* Section header string table index */
+    unsigned char *string_table = &mem[shdr[ehdr->e_shstrndx].sh_offset];
 
-//    unsigned char *string_table = &mem[shdr[-(ehdr->e_shstrndx)].sh_offset];
-//
-//    printf("section header list:\n");
-//    for (int i = 1; i < ehdr->e_shnum; ++i) {
-//        printf("%s: 0x%lx\n", &string_table[shdr[i].sh_name], shdr[i].sh_addr);
-//    }
+    printf("section header list:\n");
+    for (int i = 1; i < ehdr->e_shnum; ++i) {
+        printf("%s: 0x%lx\n", &string_table[shdr[i].sh_name], shdr[i].sh_addr);
+    }
 
+    printf("program header list:\n");
+
+    char *interp;
+    for (int i = 0; i < ehdr->e_phnum; ++i) {
+        switch (phdr->p_type) {
+        case PT_LOAD:
+            if (phdr[i].p_offset == 0)
+                printf("Text segment:0x%lx\n", phdr[i].p_vaddr);
+            else
+                printf("Data segment:0x%lx\n", phdr[i].p_vaddr);
+            break;
+
+        case PT_INTERP:interp = strdup((char *) &mem[phdr[i].p_offset]);
+            printf("Interpreter: %s\n", interp);
+            break;
+        case PT_NOTE:printf("Note segment: 0x%lx\n", phdr[i].p_vaddr);
+            break;
+        case PT_DYNAMIC:printf("Dynamic segment: 0x%lx\n", phdr[i].p_vaddr);
+            break;
+        case PT_PHDR:printf("Phdr segment: 0x%lx\n", phdr[i].p_vaddr);
+            break;
+        }
+
+    }
+    exit(0);
 }

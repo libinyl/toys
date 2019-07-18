@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 ls > y
 cat < y | sort | uniq | wc > y1
 cat y1

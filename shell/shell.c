@@ -8,7 +8,6 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-
 // Simplifed xv6 shell.
 
 #define MAXARGS 10
@@ -26,10 +25,6 @@ struct execcmd
     char *argv[MAXARGS];   // arguments to the command to be exec-ed
 };
 
-// echo "6.828 is cool" > x.txt
-// cmd
-// cat < a.txt
-// cmd type file
 struct redircmd
 {
     int type;          // < or >
@@ -65,31 +60,47 @@ runcmd(struct cmd *cmd)
     default:fprintf(stderr, "unknown runcmd\n");
         _exit(-1);
 
-        //常规命令
     case ' ':ecmd = (struct execcmd *) cmd;
         if (ecmd->argv[0] == 0)
             _exit(0);
         execvp(ecmd->argv[0], ecmd->argv);
         break;
 
-        // I/O 重定向命令,写入
-        // echo "6.828 is cool" > x.txt
     case '>':
-        rcmd = (struct redircmd *) cmd;
-        runcmd(rcmd->cmd);
-
-
-
-    case '<':rcmd = (struct redircmd *) cmd;
-
-
-        runcmd(rcmd->cmd);
+    case '<':
+        if (fork1() == 0) {
+            rcmd = (struct redircmd *) cmd;
+            close(rcmd->fd);
+            int fd = open(rcmd->file, rcmd->flags, O_CREAT);
+            if (fd == -1) {
+                perror("open");
+                exit(-1);
+            }
+            runcmd(rcmd->cmd);
+        }
         break;
 
     case '|':pcmd = (struct pipecmd *) cmd;
-        fprintf(stderr, "pipe not implemented\n");
-        // Your code here ...
-        break;
+        int pipedfd[2];
+        pipe(pipedfd);
+        char buff;
+
+        if (fork() == 0) {
+            // 子进程,用于读取来自父进程的输入
+            //关掉无用的写入 fd
+            close(pipedfd[1]);
+            // 把原有的 stdin 关掉,换成p[0]
+            close(0);
+            dup(pipedfd[0]);
+            runcmd(pcmd->right);
+        }
+        // 父进程,用于写入
+        // 关掉无用的读取描述符
+        close(pipedfd[0]);
+        // 把原有的 stdout 关掉,换成 pipedfd[1]
+        close(1);
+        dup(pipedfd[1]);
+        runcmd(pcmd->left);
     }
     _exit(0);
 }
@@ -121,8 +132,8 @@ main(void)
                 fprintf(stderr, "cannot cd %s\n", buf + 3);
             continue;
         }
-        //if (fork1() == 0)
-        runcmd(parsecmd(buf));
+        if (fork1() == 0)
+            runcmd(parsecmd(buf));
         wait(&r);
     }
     exit(0);
@@ -300,7 +311,6 @@ parseredirs(struct cmd *cmd, char **ps, char *es)
             break;
         case '>':cmd = redircmd(cmd, mkcopy(q, eq), '>');
             break;
-        default:break;
         }
     }
     return cmd;
@@ -319,7 +329,7 @@ parseexec(char **ps, char *es)
 
     argc = 0;
     ret = parseredirs(ret, ps, es);
-    while (!(ps, es, "|")) {
+    while (!peek(ps, es, "|")) {
         if ((tok = gettoken(ps, es, &q, &eq)) == 0)
             break;
         if (tok != 'a') {

@@ -12,15 +12,22 @@
 #include <limits.h>
 #include <elf.h>
 #include <string.h>
+#include <stdarg.h>
 
-// elf 文件格式图示: https://en.wikipedia.org/wiki/File:Elf-layout--en.svg
+
+
+// http://refspecs.linuxbase.org/elf/gabi4+/ch4.intro.html
 int main(int argc, char *args[])
 {
-    if (argc != 2)
-        printf("usage: %s <elf-file>", args[0]);
+//    if (argc != 2) {
+//        printf("usage: %s <elf-file>", args[0]);
+//        exit(-1);
+//    }
+//
 
-    //args[1] = "/bin/ls";
+    args[1] = "/root/main";
     int fd = open(args[1], O_RDONLY);
+    printf("%12s : %d\n", "fd", fd);
     if (fd < 0) {
         perror("open");
         exit(-1);
@@ -79,61 +86,57 @@ int main(int argc, char *args[])
         exit(1);
     }
 
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *) mem;                  // elf header
-    Elf64_Phdr *phdr = (Elf64_Phdr *) &mem[ehdr->e_phoff];  // program header
-    Elf64_Shdr *shdr = (Elf64_Shdr *) &mem[ehdr->e_shoff];  // section header
+
+    Elf32_Ehdr *ehdr = (Elf32_Ehdr *) mem;                  // elf header
+    Elf32_Phdr *phdr = (Elf32_Phdr *) &mem[ehdr->e_phoff];  // program header
+    Elf32_Shdr *shdr = (Elf32_Shdr *) &mem[ehdr->e_shoff];  // section header
+
+    mem[ehdr->e_shstrndx]
 
 
 
     /* ugly code*/
-    printf("e_ident\t:\t%s\n", ehdr->e_ident);
-    printf("e_type\t:\t%hd\n", ehdr->e_type);
-    printf("e_machine\t:\t%hd\n", ehdr->e_machine);
-    printf("e_version\t:\t%u\n", ehdr->e_version);
-    printf("e_entry\t:\t0x%lx\n", ehdr->e_entry);
-    printf("e_phoff\t:\t0x%lx\n", ehdr->e_phoff);
-    printf("e_shoff\t:\t0x%lx\n", ehdr->e_shoff);
-    printf("e_flags\t:\t%u\n", ehdr->e_flags);
-    printf("e_ehsize\t:\t%hd\n", ehdr->e_ehsize);
-    printf("e_phentsize\t:\t%hd\n", ehdr->e_phentsize);
-    printf("e_phnum\t:\t%hd\n", ehdr->e_phnum);
-    printf("e_shentsize\t:\t%hd\n", ehdr->e_shentsize);
-    printf("e_shnum\t:\t%hd\n", ehdr->e_shnum);
-    printf("e_shstrndx\t:\t%hd\n", ehdr->e_shstrndx);
 
 
 
+    printf("%12s : %s\n", "e_ident", ehdr->e_ident);
+    printf("%12s : %hd\n", "e_type", ehdr->e_type);
+    printf("%12s : %hd\n", "e_machine", ehdr->e_machine);
+    printf("%12s : %u\n", "e_version", ehdr->e_version);
+    printf("%12s : 0x%u\n", "e_entry", ehdr->e_entry);
+    printf("%12s : 0x%u\n", "e_phoff", ehdr->e_phoff);
+    printf("%12s : 0x%u\n", "e_shoff", ehdr->e_shoff);
+    printf("%12s : %u\n", "e_flags", ehdr->e_flags);
+    printf("%12s : %hd\n", "e_ehsize", ehdr->e_ehsize);
+    printf("%12s : %hd\n", "e_phentsize", ehdr->e_phentsize);
+    printf("%12s : %hd\n", "e_phnum", ehdr->e_phnum);
+    printf("%12s : %hd\n", "e_shentsize", ehdr->e_shentsize);
+    printf("%12s : %hd\n", "e_shnum", ehdr->e_shnum);
+    printf("%12s : %hd\n", "e_shstrndx", ehdr->e_shstrndx);
 
-    /* Legal values for e_type (object file type).
-
-     * #define ET_NONE		0		// No file type
-     * #define ET_REL		1		// Relocatable file
-     * #define ET_EXEC		2		// Executable file
-     * #define ET_DYN		3		// Shared object file
-     * #define ET_CORE		4		// Core file
-     * #define	ET_NUM		5		// Number of defined types
-     * #define ET_LOOS		0xfe00		// OS-specific range start
-     * #define ET_HIOS		0xfeff		// OS-specific range end
-     * #define ET_LOPROC	0xff00		// Processor-specific range start
-     * #define ET_HIPROC	0xffff		// Processor-specific range end
-    */
 
 
     /**
      * 注意,一般来说,静态链接得到可执行文件,动态链接得到共吸纳过文件
      */
     if (ehdr->e_type != ET_EXEC) {
-        fprintf(stderr, "warn: %s is not executable type.\n", args[1]);
+        fprintf(stderr, "warn: %s's type is not 'ET_EXEC'.\n", args[1]);
     }
 
-    printf("program entry point:0x%lx\n", ehdr->e_entry);
+    printf("program entry point:0x%u\n", ehdr->e_entry);
 
     //e_shstrndx: /* Section header string table index */
+
+
+
+
+
+
     unsigned char *string_table = &mem[shdr[ehdr->e_shstrndx].sh_offset];
 
     printf("section header list:\n");
     for (int i = 1; i < ehdr->e_shnum; ++i) {
-        printf("%s: 0x%lx\n", &string_table[shdr[i].sh_name], shdr[i].sh_addr);
+        printf("%s: 0x%u\n", &string_table[shdr[i].sh_name], shdr[i].sh_addr);
     }
 
     printf("program header list:\n");
